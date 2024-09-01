@@ -108,7 +108,8 @@ auto main(const int /*argc*/, const char* const* /*argv*/, const char* const* en
         warn("init exitted unexpectedlly");
         warn("fallback to emergency shell");
 
-        const auto argv = std::array{"/sbin/agetty", "--noclear", "tty1", "linux", (const char*)nullptr};
+        const auto exec = build_string(etc, "/emergency");
+        const auto argv = std::array{exec.data(), (const char*)nullptr};
         execve(argv[0], (char**)argv.data(), (char**)envp);
     }
 
