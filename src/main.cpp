@@ -176,7 +176,7 @@ auto main(const int argc, char** argv) -> int {
     ensure(fs->init());
     auto worker = std::thread([]() { fs->run(); });
 
-    const auto args = std::array{"daemonfs", "-f", "-o", "default_permissions", mountpoint};
+    const auto args = std::array{"daemonfs", "-f", "-o", "default_permissions", "-o", "max_idle_threads=1", mountpoint};
     const auto ret  = fuse_main(args.size(), (char**)args.data(), &operations, NULL);
     fs->remote_command<Commands::Quit>();
 
