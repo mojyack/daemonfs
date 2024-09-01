@@ -29,15 +29,6 @@ auto siguser2_handler(int) -> void {
 auto ignore_handler(int) -> void {
 }
 
-auto reget_stderr() -> bool {
-    if(const auto ttyfd = open("/dev/console", O_RDWR); ttyfd != -1) {
-        ensure(dup2(ttyfd, 2) != -1);
-        if(ttyfd > 2) {
-            close(ttyfd);
-        }
-    }
-    return true;
-}
 auto child_main(const int stage, const char* const* envp) -> bool {
     const auto exec = build_string("/etc/init/", stage);
     const auto argv = std::array{exec.data(), (const char*)nullptr};
@@ -112,7 +103,6 @@ auto run(const char* const* envp) -> int {
 
 auto main(const int /*argc*/, const char* const* /*argv*/, const char* const* envp) -> int {
     if(run(envp) != 0) {
-        reget_stderr();
         warn("init exitted unexpectedlly");
         warn("fallback to emergency shell");
 
