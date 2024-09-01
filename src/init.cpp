@@ -14,6 +14,8 @@
 #include "macros/assert.hpp"
 #include "signal.hpp"
 
+constexpr auto etc = "/etc/init";
+
 namespace {
 auto siguser1_count = std::atomic_int(0);
 auto siguser2_count = std::atomic_int(0);
@@ -30,10 +32,10 @@ auto ignore_handler(int) -> void {
 }
 
 auto child_main(const int stage, const char* const* envp) -> bool {
-    const auto exec = build_string("/etc/init/", stage);
+    const auto exec = build_string(etc, "/", stage);
     const auto argv = std::array{exec.data(), (const char*)nullptr};
     ensure(setsid() != pid_t(-1));
-    ensure(chdir("/etc/init") != -1);
+    ensure(chdir(etc) != -1);
     ensure(execve(exec.data(), (char**)argv.data(), (char**)envp) != -1);
     bail("unable to start child of stage ", stage, ": ", strerror(errno));
 }
