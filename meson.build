@@ -18,6 +18,14 @@ executable('daemonfs',
   dependencies : deps,
   install : true)
 
+executable('barebone-init',
+  files(
+    'src/init.cpp',
+    'src/signal.cpp',
+  ),
+  install : true,
+  install_dir : 'sbin')
+
 executable('message-buffer-test',
   files(
     'src/message-buffer.cpp',
