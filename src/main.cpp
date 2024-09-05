@@ -59,13 +59,13 @@ auto read(const char* const /*path*/, char* const buf, const size_t size, const 
         return -EIO;
     }
 
-    const auto cache = std::bit_cast<PageCache*>(fi->fh);
+    const auto cache = std::bit_cast<PageCache*>(uintptr_t(fi->fh));
     if(size_t(offset) >= cache->data.size()) {
         return 0;
     }
 
     const auto copy_head = offset;
-    const auto copy_end  = std::min(offset + size, cache->data.size());
+    const auto copy_end  = std::min(size_t(offset + size), cache->data.size());
     const auto copy_len  = copy_end - copy_head;
     std::memcpy(buf, cache->data.data() + copy_head, copy_len);
     return copy_len;
@@ -76,7 +76,7 @@ auto write(const char* const /*path*/, const char* const buf, const size_t size,
         return -EIO;
     }
 
-    const auto cache = std::bit_cast<PageCache*>(fi->fh);
+    const auto cache = std::bit_cast<PageCache*>(uintptr_t(fi->fh));
 
     const auto copy_head = offset;
     const auto copy_end  = offset + size;
@@ -98,7 +98,7 @@ auto release(const char* const path, fuse_file_info* const fi) -> int {
         return -EIO;
     }
 
-    const auto cache = std::bit_cast<PageCache*>(fi->fh);
+    const auto cache = std::bit_cast<PageCache*>(uintptr_t(fi->fh));
     if(fi->flags & (O_RDWR | O_WRONLY)) {
         fs->remote_command<Commands::Write>(path, &cache->data);
     }
