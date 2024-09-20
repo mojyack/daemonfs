@@ -3,49 +3,51 @@
 auto MessageBuffer::resize(const size_t size) -> void {
     auto new_data = std::vector<char>(size);
 
-    head = 0;
-    len  = read(new_data);
+    len  = read(0, new_data);
     data = std::move(new_data);
 }
 
-auto MessageBuffer::read(const std::span<char> buf) const -> size_t {
-    auto left = std::min(len, buf.size());
+auto MessageBuffer::read(size_t offset, std::span<char> buf) const -> size_t {
+    if(offset >= len || offset >= data.size()) {
+        return 0;
+    }
 
-    const auto copyable = data.size() - head;
-    const auto copy_len = std::min(left, copyable);
-    memcpy(buf.data(), data.data() + head, copy_len);
-    left -= copy_len;
-    memcpy(buf.data() + copy_len, data.data(), left);
-    return std::min(len, buf.size());
+    const auto original_buf_size = buf.size();
+    const auto sector_size       = data.size();
+
+    if(len < data.size()) {
+        const auto copy_len = std::min(len - offset, buf.size());
+        memcpy(buf.data(), data.data() + offset, copy_len);
+        return copy_len;
+    }
+
+    const auto end        = len % sector_size;
+    const auto behind_end = sector_size - end;
+    if(behind_end > offset) {
+        const auto copy_len = std::min(behind_end - offset, buf.size());
+        memcpy(buf.data(), data.data() + end + offset, copy_len);
+        buf    = buf.subspan(copy_len);
+        offset = 0;
+    } else {
+        offset -= behind_end;
+    }
+    const auto ahead_end = sector_size - behind_end;
+    const auto copy_len  = std::min(ahead_end - offset, buf.size());
+    memcpy(buf.data(), data.data() + offset, copy_len);
+    return std::min(original_buf_size, sector_size - offset);
 }
 
 auto MessageBuffer::write(std::span<const char> buf) -> size_t {
-    if(buf.size() >= data.size()) {
-        head = 0;
-        len  = data.size();
-        memcpy(data.data(), &buf.back() - data.size() + 1, len);
-        return len;
+    const auto original_buf_size = buf.size();
+    const auto sector_size       = data.size();
+    while(!buf.empty()) {
+        const auto cursor     = len % sector_size;
+        const auto free_space = sector_size - cursor;
+        const auto copy_len   = std::min(buf.size(), free_space);
+        memcpy(data.data() + cursor, buf.data(), copy_len);
+        buf = buf.subspan(copy_len);
+        len += copy_len;
     }
 
-    const auto avail_head = (head + len) % data.size();
-    const auto copyable   = data.size() - avail_head;
-    if(copyable >= buf.size()) {
-        memcpy(data.data() + avail_head, buf.data(), buf.size());
-
-        const auto filled = len == data.size();
-        if(filled) {
-            head = (head + buf.size()) % data.size();
-        } else {
-            len += buf.size();
-        }
-        return buf.size();
-    } else {
-        memcpy(data.data() + avail_head, buf.data(), copyable);
-        buf = buf.subspan(copyable);
-        memcpy(data.data(), buf.data(), buf.size());
-
-        head = buf.size();
-        len  = data.size();
-        return buf.size() + copyable;
-    }
+    return original_buf_size;
 }

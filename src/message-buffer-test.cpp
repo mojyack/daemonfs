@@ -3,11 +3,7 @@
 
 namespace {
 auto debug_print(const MessageBuffer& mb) -> void {
-    printf("size=%lu head=%lu len=%lu\n", mb.data.size(), mb.head, mb.len);
-    for(auto i = 0u; i < mb.head; i += 1) {
-        printf(" ");
-    }
-    printf(".%lu\n", mb.len);
+    printf("size=%lu len=%lu\n", mb.data.size(), mb.len);
     if(mb.len >= mb.data.size()) {
         for(auto i = 0u; i < mb.data.size(); i += 1) {
             printf("%c", mb.data[i]);
@@ -27,53 +23,51 @@ auto debug_print(const MessageBuffer& mb) -> void {
 auto main() -> int {
     constexpr auto size = 8;
 
-    auto buf = std::array<char, size>();
-    auto mb  = MessageBuffer();
+    auto mb = MessageBuffer();
 
     mb.resize(size);
 
+    auto dump = [&mb]() {
+        debug_print(mb);
+        for(auto i = 0; i < size; i += 1) {
+            auto buf = std::array<char, size>();
+            print("read: ", i, " ", std::string_view{buf.data(), mb.read(i, buf)});
+        }
+    };
+
     ensure(mb.write({"hello", 5}) == 5);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    dump();
 
     ensure(mb.write({"!", 1}) == 1);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    dump();
 
     ensure(mb.write({"world", 5}) == 5);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    dump();
 
     ensure(mb.write({"!", 1}) == 1);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    dump();
 
     ensure(mb.write({"string", 6}) == 6);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    dump();
 
     for(auto i = 'a'; i < 'a' + 16; i += 1) {
         ensure(mb.write({&i, 1}) == 1);
         debug_print(mb);
     }
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    dump();
 
-    ensure(mb.write({"hello,world!", 12}) == size);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    ensure(mb.write({"hello,world!", 12}) == 12);
+    dump();
 
     mb.resize(4);
-    ensure(mb.write({"hello,world!", 12}) == 4);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    ensure(mb.write({"hello,world!", 12}) == 12);
+    dump();
 
     mb.resize(0);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    dump();
 
     mb.resize(size);
-    debug_print(mb);
-    print("read: ", std::string_view{buf.data(), mb.read(buf)});
+    dump();
 
     return 0;
 }
