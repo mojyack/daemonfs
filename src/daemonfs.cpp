@@ -157,11 +157,12 @@ auto DaemonFS::process_command(const Commands::RemoveDir& args) -> int {
     const auto path = std::string_view(args.path);
     const auto elms = split(path, "/");
     ensure_e(elms.size() == 1, -EINVAL);
-    const auto name   = elms[0];
-    const auto daemon = std::ranges::find_if(daemons, [name](auto& d) { return d->name == name; });
-    ensure_e(daemon != daemons.end(), -ENOENT);
-    ensure_e((*daemon)->state != State::Up, -EBUSY);
-    daemons.erase(daemon);
+    const auto name      = elms[0];
+    const auto daemon_it = std::ranges::find_if(daemons, [name](auto& d) { return d->name == name; });
+    ensure_e(daemon_it != daemons.end(), -ENOENT);
+    const auto daemon = *(*daemon_it);
+    ensure_e(daemon.state != State::Up && daemon.state != State::WantDown, -EBUSY);
+    daemons.erase(daemon_it);
     return 0;
 }
 
