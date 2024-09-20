@@ -13,10 +13,6 @@
 #include "util/argument-parser.hpp"
 
 namespace {
-struct PageCache {
-    std::string data;
-};
-
 auto fs = (DaemonFS*)(nullptr);
 
 auto bootstrap_path = std::string();
@@ -41,49 +37,19 @@ auto truncate(const char* const path, const off_t offset, fuse_file_info* /*fi*/
     return fs->remote_command<Commands::Truncate>(path, offset);
 }
 
-auto open(const char* const path, fuse_file_info* const fi) -> int {
+auto open(const char* const /*path*/, fuse_file_info* const fi) -> int {
     fi->direct_io   = 1;
     fi->nonseekable = 1;
     fi->noflush     = 1;
-
-    auto cache = std::unique_ptr<PageCache>(new PageCache());
-    if(const auto code = fs->remote_command<Commands::Read>(path, &cache->data); code != 0) {
-        return code;
-    }
-    fi->fh = std::bit_cast<uintptr_t>(cache.release());
     return 0;
 }
 
-auto read(const char* const /*path*/, char* const buf, const size_t size, const off_t offset, fuse_file_info* const fi) -> int {
-    if(fi->fh == 0) {
-        return -EIO;
-    }
-
-    const auto cache = std::bit_cast<PageCache*>(uintptr_t(fi->fh));
-    if(size_t(offset) >= cache->data.size()) {
-        return 0;
-    }
-
-    const auto copy_head = offset;
-    const auto copy_end  = std::min(size_t(offset + size), cache->data.size());
-    const auto copy_len  = copy_end - copy_head;
-    std::memcpy(buf, cache->data.data() + copy_head, copy_len);
-    return copy_len;
+auto read(const char* const path, char* const buf, const size_t size, const off_t offset, fuse_file_info* const /*fi*/) -> int {
+    return fs->remote_command<Commands::Read>(path, buf, offset, size);
 }
 
-auto write(const char* const /*path*/, const char* const buf, const size_t size, const off_t offset, fuse_file_info* const fi) -> int {
-    if(fi->fh == 0) {
-        return -EIO;
-    }
-
-    const auto cache = std::bit_cast<PageCache*>(uintptr_t(fi->fh));
-
-    const auto copy_head = offset;
-    const auto copy_end  = offset + size;
-    const auto copy_len  = copy_end - copy_head;
-    cache->data.resize(copy_end);
-    std::memcpy(cache->data.data() + copy_head, buf, copy_len);
-    return copy_len;
+auto write(const char* const path, const char* const buf, const size_t size, const off_t offset, fuse_file_info* const /*fi*/) -> int {
+    return fs->remote_command<Commands::Write>(path, buf, offset, size);
 }
 
 auto init(fuse_conn_info* /*conn*/, fuse_config* /*cfg*/) -> void* {
@@ -91,20 +57,6 @@ auto init(fuse_conn_info* /*conn*/, fuse_config* /*cfg*/) -> void* {
         fs->add_oneshot_daemon("bootstrap", std::move(bootstrap_path));
     }
     return NULL;
-}
-
-auto release(const char* const path, fuse_file_info* const fi) -> int {
-    if(fi->fh == 0) {
-        return -EIO;
-    }
-
-    const auto cache = std::bit_cast<PageCache*>(uintptr_t(fi->fh));
-    if(fi->flags & (O_RDWR | O_WRONLY)) {
-        fs->remote_command<Commands::Write>(path, &cache->data);
-    }
-    delete cache;
-
-    return 0;
 }
 
 const auto operations = fuse_operations{
@@ -125,7 +77,7 @@ const auto operations = fuse_operations{
     .write           = write,
     .statfs          = NULL,
     .flush           = NULL,
-    .release         = release,
+    .release         = NULL,
     .fsync           = NULL,
     .setxattr        = NULL,
     .getxattr        = NULL,

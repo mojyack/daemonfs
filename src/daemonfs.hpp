@@ -38,13 +38,17 @@ struct Commands {
     };
 
     struct Read {
-        const char*  path;
-        std::string* buf;
+        const char* path;
+        char*       buffer;
+        size_t      offset;
+        size_t      size;
     };
 
     struct Write {
-        const char*        path;
-        const std::string* buf;
+        const char* path;
+        const char* buffer;
+        size_t      offset;
+        size_t      size;
     };
 
     struct Quit {

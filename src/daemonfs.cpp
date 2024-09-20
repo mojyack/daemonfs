@@ -193,7 +193,7 @@ auto DaemonFS::process_command(const Commands::Truncate& args) -> int {
 auto DaemonFS::process_command(const Commands::Read& args) -> int {
     const auto [daemon, file] = find_daemon_and_filename(args.path);
     ensure(daemon, -ENOENT);
-    return daemon->read(file, *args.buf);
+    return daemon->read(file, args.offset, args.size, args.buffer);
 }
 
 auto DaemonFS::process_command(const Commands::Write& args) -> int {
@@ -201,7 +201,8 @@ auto DaemonFS::process_command(const Commands::Write& args) -> int {
     ensure(daemon, -ENOENT);
 
     if(file == "state") {
-        const auto str = extract_string(*args.buf);
+        ensure_e(args.offset == 0, -EINVAL);
+        const auto str = extract_string({args.buffer, args.size});
         if(str == "up") {
             ensure_e(daemon->state == State::Down || daemon->state == State::Fail, -EINVAL);
             ensure_e(start_daemon(*daemon), -EIO);
@@ -212,10 +213,10 @@ auto DaemonFS::process_command(const Commands::Write& args) -> int {
         } else {
             return -EINVAL;
         }
-        return 0;
+        return args.size;
     }
 
-    return daemon->write(file, *args.buf);
+    return daemon->write(file, args.offset, args.size, args.buffer);
 }
 
 auto DaemonFS::process_command(const Commands::Quit& /*args*/) -> int {

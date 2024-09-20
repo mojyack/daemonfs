@@ -18,6 +18,32 @@ const auto state_str = std::array{"init", "up", "want-down", "down", "fail"};
 auto is_pid_valid(const State state) {
     return state == State::Up || state == State::WantDown;
 }
+
+// modifies args
+auto split_to_argv(std::string& args) -> std::vector<char*> {
+    auto argv = std::vector<char*>();
+    args.push_back('\n');
+    for(const auto arg : split(args, "\n")) {
+        const auto ptr  = const_cast<char*>(arg.data());
+        ptr[arg.size()] = '\0'; // \n to \0
+        argv.emplace_back(ptr);
+    }
+    argv.emplace_back(nullptr);
+
+    return argv;
+}
+
+auto memcpy_range(std::string_view file, const size_t offset, const size_t size, const void* const buffer, const bool write) -> int {
+    const auto copy_head = offset;
+    const auto copy_end  = std::min(offset + size, file.size());
+    const auto copy_len  = copy_end - copy_head;
+    if(write) {
+        std::memcpy((char*)file.data() + copy_head, buffer, copy_len);
+    } else {
+        std::memcpy((char*)buffer, file.data() + copy_head, copy_len);
+    }
+    return copy_len;
+}
 } // namespace
 
 auto set_timestamp(Stat& stat, const TimePoint& time) -> void {
@@ -54,17 +80,13 @@ auto Daemon::start_process() -> bool {
     dup2(pipe_stdout[1], 1);
     dup2(pipe_stderr[1], 2);
 
-    const auto workdir = std::filesystem::path(args[0]).parent_path().string();
+    const auto argv    = split_to_argv(args);
+    const auto workdir = std::filesystem::path(argv[0]).parent_path().string();
     if(chdir(workdir.data()) == -1) {
         warn("chdir() failed: ", strerror(errno));
         _exit(1);
     }
 
-    auto argv = std::vector<char*>(args.size() + 1);
-    for(auto i = 0u; i < args.size(); i += 1) {
-        argv[i] = args[i].data();
-    }
-    argv.emplace_back(nullptr);
     execve(argv[0], argv.data(), environ);
     warn("execve() failed: ", strerror(errno));
     _exit(1);
@@ -132,48 +154,33 @@ auto Daemon::truncate(const std::string_view file, const off_t offset) -> int {
     return 0;
 }
 
-auto Daemon::read(std::string_view file, std::string& buf) const -> int {
+auto Daemon::read(const std::string_view file, const size_t offset, const size_t size, char* const buffer) const -> int {
     if(file == "args") {
-        for(const auto& arg : args) {
-            buf += arg;
-            buf += '\n';
-        }
-        return 0;
+        return memcpy_range(args, offset, size, buffer, false);
     }
     ensure_e(state != State::Init, -EINVAL);
     if(file == "state") {
-        buf = state_str[int(state)];
-        return 0;
+        return memcpy_range(state_str[int(state)], offset, size, buffer, false);
     }
     if(file == "pid") {
         ensure_e(is_pid_valid(state), -EINVAL);
-        buf = std::to_string(pid);
-        return 0;
+        return memcpy_range(std::to_string(pid), offset, size, buffer, false);
     }
     if(file == "stdout") {
-        buf.resize(stdout_buf.len);
-        stdout_buf.read(buf);
-        return 0;
+        return stdout_buf.read(offset, {buffer, size});
     }
     if(file == "stderr") {
-        buf.resize(stderr_buf.len);
-        stderr_buf.read(buf);
-        return 0;
+        return stderr_buf.read(offset, {buffer, size});
     }
     return -ENOENT;
 }
 
-auto Daemon::write(std::string_view file, const std::string& buf) -> int {
+auto Daemon::write(const std::string_view file, const size_t offset, const size_t size, const char* const buffer) -> int {
     if(file == "args") {
         ensure_e(state == State::Init, -EINVAL);
-        ensure_e(!buf.empty(), -EINVAL);
-        const auto elms = split(buf, "\n");
-        ensure_e(std::filesystem::path(elms[0]).is_absolute(), -EINVAL);
-        for(const auto arg : elms) {
-            args.emplace_back(std::string(arg));
-        }
         set_state(State::Down);
-        return 0;
+        args.resize(offset + size);
+        return memcpy_range(args, offset, size, buffer, true);
     }
     return -ENOENT;
 }

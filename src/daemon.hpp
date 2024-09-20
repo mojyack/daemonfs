@@ -30,14 +30,14 @@ enum class StopResult {
 auto set_timestamp(Stat& stat, const TimePoint& time) -> void;
 
 struct Daemon {
-    std::string              name;
-    std::vector<std::string> args;
-    State                    state : 7     = State::Init;
-    bool                     oneshot       = false;
-    TimePoint                created       = std::chrono::system_clock::now();
-    TimePoint                state_changed = created;
-    MessageBuffer            stdout_buf;
-    MessageBuffer            stderr_buf;
+    std::string   name;
+    std::string   args;
+    State         state : 7     = State::Init;
+    bool          oneshot       = false;
+    TimePoint     created       = std::chrono::system_clock::now();
+    TimePoint     state_changed = created;
+    MessageBuffer stdout_buf;
+    MessageBuffer stderr_buf;
 
     // child process state
     int   stdout_fd = -1;
@@ -50,6 +50,6 @@ struct Daemon {
     auto getattr(std::string_view file, Stat& stat) const -> int;
     auto readdir(AddDirEntry callback) const -> int;
     auto truncate(std::string_view file, off_t offset) -> int;
-    auto read(std::string_view file, std::string& buf) const -> int;
-    auto write(std::string_view file, const std::string& buf) -> int;
+    auto read(std::string_view file, size_t offset, size_t size, char* buffer) const -> int;
+    auto write(std::string_view file, size_t offset, size_t size, const char* buffer) -> int;
 };
