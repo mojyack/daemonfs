@@ -38,6 +38,10 @@ auto MessageBuffer::read(size_t offset, std::span<char> buf) const -> size_t {
 }
 
 auto MessageBuffer::write(std::span<const char> buf) -> size_t {
+    if(data.size() == 0) {
+        return 0;
+    }
+
     const auto original_buf_size = buf.size();
     const auto sector_size       = data.size();
     while(!buf.empty()) {
