@@ -166,6 +166,7 @@ auto Daemon::read(std::string_view file, std::string& buf) const -> int {
 auto Daemon::write(std::string_view file, const std::string& buf) -> int {
     if(file == "args") {
         ensure_e(state == State::Init, -EINVAL);
+        ensure_e(!buf.empty(), -EINVAL);
         const auto elms = split(buf, "\n");
         ensure_e(std::filesystem::path(elms[0]).is_absolute(), -EINVAL);
         for(const auto arg : elms) {
