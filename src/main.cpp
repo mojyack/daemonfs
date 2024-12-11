@@ -111,11 +111,11 @@ auto main(const int argc, char** argv) -> int {
     auto verbose    = false;
     auto help       = false;
     {
-        auto parser = args::Parser();
-        parser.kwarg(&bootstrap, {"-b"}, {"EXE", "bootstrap script", args::State::Initialized});
-        parser.kwarg(&verbose, {"-v", "--verbose"}, {.arg_desc = "enable verbose outputs", .state = args::State::Initialized});
-        parser.kwarg(&help, {"-h", "--help"}, {.arg_desc = "print help message", .state = args::State::Initialized, .no_error_check = true});
-        parser.arg(&mountpoint, {.arg_desc = "mountpoint"});
+        auto parser = args::Parser<>();
+        parser.kwarg(&bootstrap, {"-b"}, "EXE", "bootstrap script", {.state = args::State::Initialized});
+        parser.kwflag(&verbose, {"-v", "--verbose"}, "enable verbose outputs");
+        parser.kwflag(&help, {"-h", "--help"}, "print help message", {.no_error_check = true});
+        parser.arg(&mountpoint, "DIR", "path to mountpoint");
         if(!parser.parse(argc, argv) || help) {
             print("usage: daemonfs ", parser.get_help());
             return 0;

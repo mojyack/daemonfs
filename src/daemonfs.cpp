@@ -285,7 +285,7 @@ loop:
                     break;
                 }
                 if(len < 0) {
-                    line_warn("read() failed: ", strerror(errno));
+                    WARN("read() failed: ", strerror(errno));
                     break;
                 }
                 if(verbose) {
