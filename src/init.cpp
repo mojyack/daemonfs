@@ -1,4 +1,5 @@
 #include <array>
+#include <atomic>
 
 #include <bits/ioctl.h>
 #include <fcntl.h>
@@ -32,7 +33,7 @@ auto ignore_handler(int) -> void {
 }
 
 auto child_main(const int stage, const char* const* envp) -> bool {
-    const auto exec = build_string(etc, "/", stage);
+    const auto exec = std::format("{}/{}", etc, stage);
     const auto argv = std::array{exec.data(), (const char*)nullptr};
     ensure(setsid() != pid_t(-1));
     ensure(chdir(etc) != -1);
@@ -81,7 +82,7 @@ auto run(const char* const* envp) -> int {
             const auto child  = waitpid(-1, &status, 0);
             if(child == -1) {
                 if(errno != EINTR) {
-                    warn("waitpid() failed: ", strerror(errno));
+                    WARN("waitpid() failed errno: {}({})", errno, strerror(errno));
                     sleep(5);
                 }
                 continue;
@@ -93,7 +94,7 @@ auto run(const char* const* envp) -> int {
         }
     }
 
-    print("sending KILL signal to all processes...");
+    std::println("sending KILL signal to all processes...");
     kill(-1, SIGKILL);
 
     sync();
@@ -105,10 +106,10 @@ auto run(const char* const* envp) -> int {
 
 auto main(const int /*argc*/, const char* const* /*argv*/, const char* const* envp) -> int {
     if(run(envp) != 0) {
-        warn("init exitted unexpectedlly");
-        warn("fallback to emergency shell");
+        WARN("init exitted unexpectedlly");
+        WARN("fallback to emergency shell");
 
-        const auto exec = build_string(etc, "/emergency");
+        const auto exec = std::format("{}/emergency", etc);
         const auto argv = std::array{exec.data(), (const char*)nullptr};
         execve(argv[0], (char**)argv.data(), (char**)envp);
     }

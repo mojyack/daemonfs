@@ -117,7 +117,7 @@ auto main(const int argc, char** argv) -> int {
         parser.kwflag(&help, {"-h", "--help"}, "print help message", {.no_error_check = true});
         parser.arg(&mountpoint, "DIR", "path to mountpoint");
         if(!parser.parse(argc, argv) || help) {
-            print("usage: daemonfs ", parser.get_help());
+            std::println("usage: daemonfs {}", parser.get_help());
             return 0;
         }
     }

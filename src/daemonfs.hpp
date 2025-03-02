@@ -1,4 +1,6 @@
 #pragma once
+#include <print>
+
 #include <sys/epoll.h>
 #include <unistd.h>
 
@@ -106,7 +108,7 @@ class DaemonFS {
 template <class T, class... Args>
 auto DaemonFS::remote_command(const Args... args) -> int {
     if(verbose) {
-        printf("new command %lu\n", Command::index_of<T>);
+        std::println("new command {}", Command::index_of<T>);
     }
 
     auto notify = RemoteCommandNotify();
@@ -115,7 +117,7 @@ auto DaemonFS::remote_command(const Args... args) -> int {
     write(requests_event, &buf, sizeof(buf));
     notify.event.wait();
     if(verbose) {
-        printf("done result = %d %s\n", notify.result, strerror(-notify.result));
+        std::println("done result={} errno={}({})", notify.result, -notify.result, strerror(-notify.result));
     }
     return notify.result;
 }

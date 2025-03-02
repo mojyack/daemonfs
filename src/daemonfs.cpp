@@ -68,9 +68,9 @@ auto DaemonFS::start_daemon(Daemon& daemon) -> bool {
 
     static_assert(alignof(Daemon) % 2 == 0);
     auto event = epoll_event{.events = EPOLLIN, .data = {.ptr = &daemon}};
-    ensure(epoll_ctl(epollfd, EPOLL_CTL_ADD, daemon.stdout_fd, &event) == 0, strerror(errno));
+    ensure(epoll_ctl(epollfd, EPOLL_CTL_ADD, daemon.stdout_fd, &event) == 0, "errno: {}({})", errno, strerror(errno));
     event.data.ptr = (void*)(uintptr_t(&daemon) | 1);
-    ensure(epoll_ctl(epollfd, EPOLL_CTL_ADD, daemon.stderr_fd, &event) == 0, strerror(errno));
+    ensure(epoll_ctl(epollfd, EPOLL_CTL_ADD, daemon.stderr_fd, &event) == 0, "errno: {}({})", errno, strerror(errno));
     return true;
 }
 
@@ -78,17 +78,17 @@ auto DaemonFS::wait_daemon_process() -> void {
     auto       status = int();
     const auto joined = waitpid(-1, &status, WNOHANG);
     if(joined == -1) {
-        bail("waitpid() error: ", strerror(errno));
+        bail("waitpid() failed errno: {}({})", errno, strerror(errno));
     } else if(joined == 0) {
         bail("no process available for wait");
     }
     auto daemon_it = std::ranges::find_if(daemons, [joined](auto& d) { return d->pid == joined; });
-    ensure(daemon_it != daemons.end(), "pid ", joined, " is not known daemon");
+    ensure(daemon_it != daemons.end(), "pid {} is not known daemon", joined);
     auto& daemon = *daemon_it->get();
     if(WIFEXITED(status)) {
-        print("daemon ", daemon.name, " exitted with code = ", WEXITSTATUS(status));
+        std::println("daemon {} exitted with code {}", daemon.name, WEXITSTATUS(status));
     } else {
-        print("daemon ", daemon.name, " terminated with signal = ", WTERMSIG(status));
+        std::println("daemon {} terminated with signal {}", daemon.name, WTERMSIG(status));
     }
 
     ensure(remove_fd_from_epollfds(daemon.stdout_fd));
@@ -102,17 +102,17 @@ auto DaemonFS::wait_daemon_process() -> void {
     const auto elapsed = std::chrono::system_clock::now() - daemon.state_changed;
     const auto fail    = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() < 5;
     if(fail) {
-        print("daemon ", daemon.name, " failed to launch");
+        std::println("daemon {} failed to launch", daemon.name);
         daemon.set_state(State::Fail);
     } else {
-        print("restarting daemon ", daemon.name);
+        std::println("restarting daemon {}", daemon.name);
         ensure(start_daemon(daemon));
     }
 }
 
 auto DaemonFS::remove_fd_from_epollfds(int& fd) -> bool {
     if(fd != -1) {
-        ensure(epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL) == 0, strerror(errno));
+        ensure(epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL) == 0, "errno: {}({})", errno, strerror(errno));
         close(fd);
         fd = -1;
     }
@@ -186,19 +186,19 @@ auto DaemonFS::process_command(const Commands::ReadDir& args) -> int {
 
 auto DaemonFS::process_command(const Commands::Truncate& args) -> int {
     const auto [daemon, file] = find_daemon_and_filename(args.path);
-    ensure(daemon, -ENOENT);
+    ensure_e(daemon, -ENOENT);
     return daemon->truncate(file, args.offset);
 }
 
 auto DaemonFS::process_command(const Commands::Read& args) -> int {
     const auto [daemon, file] = find_daemon_and_filename(args.path);
-    ensure(daemon, -ENOENT);
+    ensure_e(daemon, -ENOENT);
     return daemon->read(file, args.offset, args.size, args.buffer);
 }
 
 auto DaemonFS::process_command(const Commands::Write& args) -> int {
     const auto [daemon, file] = find_daemon_and_filename(args.path);
-    ensure(daemon, -ENOENT);
+    ensure_e(daemon, -ENOENT);
 
     if(file == "state") {
         ensure_e(args.offset == 0, -EINVAL);
@@ -236,12 +236,12 @@ auto DaemonFS::process_requests() -> void {
 
 auto DaemonFS::init() -> bool {
     requests_event = eventfd(0, EFD_CLOEXEC);
-    ensure(requests_event >= 0, strerror(errno));
+    ensure(requests_event >= 0, "errno: {}({})", errno, strerror(errno));
 
     epollfd = epoll_create1(EPOLL_CLOEXEC);
-    ensure(epollfd >= 0, strerror(errno));
+    ensure(epollfd >= 0, "errno: {}({})", errno, strerror(errno));
     auto event = epoll_event{.events = EPOLLIN, .data = {.ptr = &requests}};
-    ensure(epoll_ctl(epollfd, EPOLL_CTL_ADD, requests_event, &event) == 0, strerror(errno));
+    ensure(epoll_ctl(epollfd, EPOLL_CTL_ADD, requests_event, &event) == 0, "errno: {}({})", errno, strerror(errno));
     return true;
 }
 
@@ -260,7 +260,7 @@ loop:
 
     const auto poll = epoll_pwait(epollfd, &event, 1, -1, &empty_set);
     if(poll == -1 && errno != EINTR) {
-        warn("epoll_pwait error: ", strerror(errno));
+        WARN("epoll_pwait errno: {}({})", errno, strerror(errno));
         goto loop;
     }
     if(poll == -1) {
@@ -285,11 +285,11 @@ loop:
                     break;
                 }
                 if(len < 0) {
-                    WARN("read() failed: ", strerror(errno));
+                    WARN("read() failed errno: {}({})", errno, strerror(errno));
                     break;
                 }
                 if(verbose) {
-                    print(daemon.name, ": ", std::string_view{buf.data(), size_t(len)});
+                    std::println("{}: {}", daemon.name, std::string_view{buf.data(), size_t(len)});
                 }
                 (is_stderr ? daemon.stderr_buf : daemon.stdout_buf).write({buf.data(), size_t(len)});
             }

@@ -56,11 +56,11 @@ auto set_timestamp(Stat& stat, const TimePoint& time) -> void {
 auto Daemon::start_process() -> bool {
     auto pipe_stdout = std::array<int, 2>();
     auto pipe_stderr = std::array<int, 2>();
-    ensure_e(pipe2(pipe_stdout.data(), O_NONBLOCK | O_CLOEXEC) >= 0, false);
-    ensure_e(pipe2(pipe_stderr.data(), O_NONBLOCK | O_CLOEXEC) >= 0, false);
+    ensure(pipe2(pipe_stdout.data(), O_NONBLOCK | O_CLOEXEC) >= 0);
+    ensure(pipe2(pipe_stderr.data(), O_NONBLOCK | O_CLOEXEC) >= 0);
     pid = fork();
     if(pid == -1) {
-        warn("fork() failed: ", strerror(errno));
+        WARN("fork() failed: {}({})", errno, strerror(errno));
         close(pipe_stdout[0]);
         close(pipe_stderr[0]);
         close(pipe_stdout[1]);
@@ -83,12 +83,12 @@ auto Daemon::start_process() -> bool {
     const auto argv    = split_to_argv(args);
     const auto workdir = std::filesystem::path(argv[0]).parent_path().string();
     if(chdir(workdir.data()) == -1) {
-        warn("chdir() failed: ", strerror(errno));
+        WARN("chdir() failed: {}({})", errno, strerror(errno));
         _exit(1);
     }
 
     execve(argv[0], argv.data(), environ);
-    warn("execve() failed: ", strerror(errno));
+    WARN("execve() failed: {}({})", errno, strerror(errno));
     _exit(1);
 }
 

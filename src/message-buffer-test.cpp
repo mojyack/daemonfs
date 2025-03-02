@@ -3,20 +3,20 @@
 
 namespace {
 auto debug_print(const MessageBuffer& mb) -> void {
-    printf("size=%lu len=%lu\n", mb.data.size(), mb.len);
+    std::println("size={}, len={}", mb.data.size(), mb.len);
     if(mb.len >= mb.data.size()) {
-        for(auto i = 0u; i < mb.data.size(); i += 1) {
-            printf("%c", mb.data[i]);
+        for(auto i = 0uz; i < mb.data.size(); i += 1) {
+            std::print("{}", mb.data[i]);
         }
     } else {
-        for(auto i = 0u; i < mb.len; i += 1) {
-            printf("%c", mb.data[i]);
+        for(auto i = 0uz; i < mb.len; i += 1) {
+            std::print("{}", mb.data[i]);
         }
         for(auto i = mb.len; i < mb.data.size(); i += 1) {
-            printf(".");
+            std::print(".");
         }
     }
-    printf("\n");
+    std::println();
 }
 } // namespace
 
@@ -31,7 +31,7 @@ auto main() -> int {
         debug_print(mb);
         for(auto i = 0; i < size; i += 1) {
             auto buf = std::array<char, size>();
-            print("read: ", i, " ", std::string_view{buf.data(), mb.read(i, buf)});
+            std::println("read: {} {}", i, std::string_view{buf.data(), mb.read(i, buf)});
         }
     };
 

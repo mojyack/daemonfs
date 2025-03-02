@@ -1,7 +1,6 @@
 #pragma once
 #include <chrono>
 #include <functional>
-#include <span>
 #include <string>
 
 #define FUSE_USE_VERSION 31
